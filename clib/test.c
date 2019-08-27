@@ -1,47 +1,8 @@
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
-typedef struct{
-    int i;
-    double d;
-    char str[17];
-}Lib_Struct;
-
-int fun(int i, double d)
-{
-    printf("-- fun -- %d , %lf\n", i, d);
-    return i*2;
-}
-
-Lib_Struct fun_io_struct(Lib_Struct ls)
-{
-    static Lib_Struct local;
-
-    printf("-- fun_io_struct -- %d, %lf, %s\n", ls.i, ls.d, ls.str);
-
-    memcpy(&local, &ls, sizeof(Lib_Struct));
-    local.i *= 2;
-    local.d *= 2;
-    int i;
-    for(i = 0; i < 17; i++)
-        local.str[i] += 1;
-    
-    return local;
-}
-
-Lib_Struct* fun_io_struct_point(Lib_Struct *ls)
-{
-    printf("-- fun_io_struct -- %d, %lf, %s\n", ls->i, ls->d, ls->str);
-
-    ls->i *= 2;
-    ls->d *= 2;
-    int i;
-    for(i = 0; i < 17; i++)
-        ls->str[i] += 1;
-    
-    return ls;
-}
+#include <unistd.h>
+#include <pthread.h>
 
 //--- python + msg ---
 
@@ -50,8 +11,8 @@ Lib_Struct* fun_io_struct_point(Lib_Struct *ls)
 
 #define MSG_TYPE   1
 #define MSG_PATH   "./"
-#define MSG_ID_W   'W'
-#define MSG_ID_R   'R'
+#define MSG_ID_W   'R'
+#define MSG_ID_R   'W'
 
 typedef struct{
     int status;
@@ -112,4 +73,38 @@ void msg_write(Msg_Content content)
     memcpy(&msg.content, &content, sizeof(Msg_Content));
     if(msg_w > 0)
         msgsnd(msg_w, &msg, sizeof(Msg_Content), IPC_NOWAIT);
+}
+
+void thread_read(void)
+{
+    Msg_Content content;
+
+    while(1)
+    {
+        if(msg_read(&content))
+            printf("thread_read: %d, %s\n", content.status, content.cmd);
+        usleep(200000);
+    }
+}
+
+int main(void)
+{
+    msg_init();
+
+    pthread_t th;
+    pthread_create(&th, NULL, (void*)&thread_read, NULL);
+
+    char input[8] = {0};
+    Msg_Content content = {
+        .status = 200,
+        .cmd = "msg from test",
+    };
+    
+    while(1)
+    {
+        scanf("%s", input);
+        msg_write(content);
+        // msg_write(content);
+        sleep(1);
+    }
 }
